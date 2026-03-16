@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vector · постоянный мессенджер</title>
+    <title>Vector · надежный мессенджер</title>
     <style>
         * {
             margin: 0;
@@ -28,10 +28,8 @@
             box-shadow: 0 20px 40px rgba(0,0,0,0.8);
             display: flex;
             overflow: hidden;
-            backdrop-filter: blur(2px);
             border: 1px solid #3d3f45;
         }
-        /* боковая панель */
         .sidebar {
             width: 76px;
             background: #1e1f22;
@@ -66,7 +64,6 @@
             border-radius: 1px;
             margin: 8px 0;
         }
-        /* левая панель — друзья */
         .friends-panel {
             width: 290px;
             background: #2b2d31;
@@ -177,7 +174,6 @@
             background: #23a55a;
             margin-left: 4px;
         }
-        /* центральный чат */
         .chat-area {
             flex: 1;
             display: flex;
@@ -323,7 +319,6 @@
             font-size: 15px;
             outline: none;
         }
-        /* модалки */
         .modal-overlay {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -380,6 +375,18 @@
             background: #f23f42; color: white; border-radius: 30px;
             padding: 3px 10px; font-size: 12px; margin-left: 8px;
         }
+        .error-text {
+            color: #f23f42;
+            font-size: 13px;
+            margin-top: -10px;
+            margin-bottom: 15px;
+        }
+        .success-text {
+            color: #23a55a;
+            font-size: 13px;
+            margin-top: -10px;
+            margin-bottom: 15px;
+        }
     </style>
 </head>
 <body>
@@ -401,7 +408,7 @@
                     <div class="user-tag" id="currentUserTag">#0000</div>
                 </div>
             </div>
-            <span class="badge hidden" id="requestBadge">1</span>
+            <span class="badge hidden" id="requestBadge">0</span>
         </div>
         <div class="search-box"><input type="text" placeholder="Поиск друзей" id="searchFriends"></div>
         <div class="friends-list" id="friendsList"></div>
@@ -410,7 +417,7 @@
     <div class="chat-area">
         <div class="chat-header" id="chatHeader">
             <div class="chat-info">
-                <h3 id="currentChatName">#вектор</h3>
+                <h3 id="currentChatName">#vector</h3>
                 <span id="currentChatTag"></span>
             </div>
             <div class="call-buttons">
@@ -426,21 +433,22 @@
                 <button class="attach-btn" id="attachMediaBtn" title="Прикрепить фото/видео">📎</button>
                 <input type="file" id="fileInput" accept="image/*,video/*" style="display:none;">
                 <input type="text" class="message-input" placeholder="Сообщение..." id="messageInput">
-                <button class="voice-note-btn" id="startVoiceNote" title="Голосовое (демо)">🎤</button>
+                <button class="voice-note-btn" id="startVoiceNote" title="Голосовое">🎤</button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Модалка регистрации/входа (постоянная, пока не войдём) -->
+<!-- Модалка регистрации/входа -->
 <div id="authModal" class="modal-overlay">
     <div class="modal">
-        <h2>⚡ Вход / Регистрация</h2>
+        <h2>⚡ Регистрация / Вход</h2>
         <input type="text" id="regUsername" placeholder="Имя" value="Игрок">
         <input type="text" id="regTag" placeholder="Тег (4 цифры)" value="1234" maxlength="4">
-        <p style="margin-bottom: 24px;">Ваш ID: <span id="displayTagPreview">Игрок#1234</span></p>
+        <p style="margin-bottom: 8px;">Ваш ID: <span id="displayTagPreview">Игрок#1234</span></p>
+        <div id="regError" class="error-text hidden"></div>
         <button id="registerBtn">Войти / Создать</button>
-        <button class="secondary" id="guestContinue">Войти как гость (временный)</button>
+        <button class="secondary" id="guestContinue">Продолжить как гость</button>
     </div>
 </div>
 
@@ -449,16 +457,17 @@
     <div class="modal">
         <h2>➕ Добавить друга</h2>
         <input type="text" id="friendTagInput" placeholder="Введите тег (Пример#1234)">
+        <div id="friendSearchResult" class="error-text hidden"></div>
         <button id="sendFriendRequestBtn">Отправить запрос</button>
         <button class="secondary" id="closeAddFriendModal">Отмена</button>
     </div>
 </div>
 
-<!-- Модалка входящих заявок (простая) -->
+<!-- Модалка входящих заявок -->
 <div id="requestsModal" class="modal-overlay hidden">
     <div class="modal">
         <h2>📨 Входящие заявки</h2>
-        <div id="incomingRequestsList" style="max-height:200px; overflow-y:auto; margin-bottom:20px;"></div>
+        <div id="incomingRequestsList" style="min-height:100px; max-height:250px; overflow-y:auto; margin-bottom:20px;"></div>
         <button class="secondary" id="closeRequestsModal">Закрыть</button>
     </div>
 </div>
@@ -468,10 +477,10 @@
 <script>
     (function() {
         // ----- Хранилище в localStorage -----
-        const STORAGE_KEY = 'vector_messenger_data';
+        const STORAGE_KEY = 'vector_messenger_v2';
         let data = {
             users: {},          // fullTag -> { name, tag, fullTag, friends: [], incoming: [], outgoing: [] }
-            messages: {},       // "fullTag1_fullTag2" -> [{ from, text, media, time, type }]
+            messages: {},       // "fullTag1_fullTag2" -> [{ from, text, media, time }]
             currentUser: null   // fullTag текущего пользователя
         };
 
@@ -484,24 +493,47 @@
                     data = parsed;
                 } catch (e) { console.warn("Ошибка загрузки"); }
             }
-            // инициализируем структуры, если пусто
             if (!data.users) data.users = {};
             if (!data.messages) data.messages = {};
-            // тестовые пользователи, если полная пустота
+            
+            // Добавляем тестовых пользователей, если их нет (для демо)
             if (Object.keys(data.users).length === 0) {
-                data.users['Алиса#1234'] = { name:'Алиса', tag:'1234', fullTag:'Алиса#1234', friends: [], incoming: [], outgoing: [] };
-                data.users['Борис#5678'] = { name:'Борис', tag:'5678', fullTag:'Борис#5678', friends: [], incoming: [], outgoing: [] };
-                data.users['Виктор#9012'] = { name:'Виктор', tag:'9012', fullTag:'Виктор#9012', friends: [], incoming: [], outgoing: [] };
+                data.users['Алиса#1234'] = { 
+                    name: 'Алиса', 
+                    tag: '1234', 
+                    fullTag: 'Алиса#1234', 
+                    friends: [], 
+                    incoming: [], 
+                    outgoing: [] 
+                };
+                data.users['Борис#5678'] = { 
+                    name: 'Борис', 
+                    tag: '5678', 
+                    fullTag: 'Борис#5678', 
+                    friends: [], 
+                    incoming: [], 
+                    outgoing: [] 
+                };
+                data.users['Виктор#9012'] = { 
+                    name: 'Виктор', 
+                    tag: '9012', 
+                    fullTag: 'Виктор#9012', 
+                    friends: [], 
+                    incoming: [], 
+                    outgoing: [] 
+                };
             }
         }
+        
         function saveData() {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
         }
+        
         loadData();
 
         // ----- Текущий пользователь -----
         let currentUser = data.currentUser ? data.users[data.currentUser] : null;
-        let selectedChatFriend = null;  // fullTag
+        let selectedChatFriend = null;
 
         // ----- Всплывающие уведомления -----
         function showToast(msg, duration=2000) {
@@ -511,14 +543,12 @@
             setTimeout(() => toast.classList.add('hidden'), duration);
         }
 
-        // ----- Обновить интерфейс пользователя -----
+        // ----- Обновить интерфейс -----
         function refreshUI() {
-            // Шапка профиля
             if (currentUser) {
                 document.getElementById('currentUserName').innerText = currentUser.name;
                 document.getElementById('currentUserTag').innerText = currentUser.fullTag;
                 document.getElementById('currentUserAvatar').innerText = currentUser.name.charAt(0).toUpperCase();
-                // скрыть модалку авторизации
                 document.getElementById('authModal').classList.add('hidden');
             } else {
                 document.getElementById('currentUserName').innerText = 'Гость';
@@ -526,7 +556,7 @@
                 document.getElementById('currentUserAvatar').innerText = '?';
                 document.getElementById('authModal').classList.remove('hidden');
             }
-            // Бейдж заявок
+            
             const badge = document.getElementById('requestBadge');
             if (currentUser && currentUser.incoming && currentUser.incoming.length > 0) {
                 badge.classList.remove('hidden');
@@ -534,6 +564,7 @@
             } else {
                 badge.classList.add('hidden');
             }
+            
             renderFriendsList();
             renderMessages();
         }
@@ -545,11 +576,13 @@
                 container.innerHTML = '<div style="color:#777; padding:20px;">Войдите в профиль</div>';
                 return;
             }
+            
             const friends = currentUser.friends || [];
             if (friends.length === 0) {
                 container.innerHTML = '<div style="color:#777; padding:20px;">Друзей нет. Нажмите "+" чтобы добавить.</div>';
                 return;
             }
+            
             let html = '';
             friends.forEach(fullTag => {
                 const friend = data.users[fullTag];
@@ -564,11 +597,11 @@
                     <div class="status-dot"></div>
                 </div>`;
             });
+            
             container.innerHTML = html;
             document.querySelectorAll('.friend-item').forEach(el => {
                 el.addEventListener('click', () => {
-                    const tag = el.dataset.tag;
-                    selectChat(tag);
+                    selectChat(el.dataset.tag);
                 });
             });
         }
@@ -581,7 +614,7 @@
             renderMessages();
         }
 
-        // ----- Сообщения (сохраняем в messages) -----
+        // ----- Сообщения -----
         function getChatKey(userA, userB) {
             return [userA, userB].sort().join('_');
         }
@@ -592,13 +625,21 @@
                 container.innerHTML = '<div style="color:#777; align-self:center; margin-top:50px;">Выберите друга для общения</div>';
                 return;
             }
+            
             const key = getChatKey(currentUser.fullTag, selectedChatFriend);
             const chatMessages = data.messages[key] || [];
+            
+            if (chatMessages.length === 0) {
+                container.innerHTML = '<div style="color:#777; align-self:center;">Напишите первое сообщение</div>';
+                return;
+            }
+            
             let html = '';
             chatMessages.forEach(msg => {
                 const isOwn = (msg.from === currentUser.fullTag);
                 const authorName = isOwn ? currentUser.name : (data.users[selectedChatFriend]?.name || 'User');
                 const avatarLetter = authorName.charAt(0).toUpperCase();
+                
                 let mediaHtml = '';
                 if (msg.media) {
                     if (msg.media.type === 'image') {
@@ -609,6 +650,7 @@
                         mediaHtml = `<div class="voice-message"><span>🎤</span><div class="voice-progress" style="width:100px; height:5px; background:#3d3f45;"></div><span>${msg.media.duration || '0:30'}</span></div>`;
                     }
                 }
+                
                 html += `<div class="message ${isOwn ? 'own' : ''}">
                     <div class="msg-avatar">${avatarLetter}</div>
                     <div class="msg-bubble">
@@ -621,9 +663,7 @@
                     </div>
                 </div>`;
             });
-            if (html === '') {
-                html = '<div style="color:#777; align-self:center;">Напишите первое сообщение</div>';
-            }
+            
             container.innerHTML = html;
             container.scrollTop = container.scrollHeight;
         }
@@ -634,140 +674,267 @@
                 showToast('Выберите собеседника');
                 return;
             }
+            
             const key = getChatKey(currentUser.fullTag, selectedChatFriend);
             if (!data.messages[key]) data.messages[key] = [];
+            
             const msg = {
                 from: currentUser.fullTag,
                 text: text || '',
                 media: media,
                 time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             };
+            
             data.messages[key].push(msg);
             saveData();
             renderMessages();
         }
 
-        // ----- Прикрепить файл (кодируем в base64 для постоянства) -----
+        // ----- Прикрепить файл -----
         document.getElementById('attachMediaBtn').addEventListener('click', () => {
             document.getElementById('fileInput').click();
         });
+        
         document.getElementById('fileInput').addEventListener('change', function(e) {
-            if (!this.files.length || !currentUser || !selectedChatFriend) return;
+            if (!this.files.length || !currentUser || !selectedChatFriend) {
+                showToast('Выберите получателя');
+                return;
+            }
+            
             const file = this.files[0];
             const reader = new FileReader();
+            
             reader.onload = (event) => {
                 const base64 = event.target.result;
-                const type = file.type.startsWith('image/') ? 'image' : (file.type.startsWith('video/') ? 'video' : null);
-                if (!type) { showToast('Только фото/видео'); return; }
+                const type = file.type.startsWith('image/') ? 'image' : 
+                            (file.type.startsWith('video/') ? 'video' : null);
+                
+                if (!type) { 
+                    showToast('Только фото/видео'); 
+                    return; 
+                }
+                
                 sendMessage('', { type: type, url: base64 });
                 showToast('Файл прикреплён');
             };
+            
             reader.readAsDataURL(file);
-            this.value = ''; // сброс
+            this.value = '';
         });
 
-        // ----- Текстовое сообщение по Enter -----
+        // ----- Текстовое сообщение -----
         document.getElementById('messageInput').addEventListener('keypress', (e) => {
             if (e.key === 'Enter' && e.target.value.trim()) {
-                const text = e.target.value.trim();
-                sendMessage(text);
+                sendMessage(e.target.value.trim());
                 e.target.value = '';
             }
         });
 
-        // ----- Регистрация / вход -----
+        // ----- Регистрация с проверкой уникальности -----
         document.getElementById('registerBtn').addEventListener('click', () => {
-            const name = document.getElementById('regUsername').value.trim() || 'Игрок';
-            let tag = document.getElementById('regTag').value.trim().replace('#','') || '0000';
-            tag = tag.padStart(4, '0').slice(0,4);
-            const fullTag = `${name}#${tag}`;
-            if (!data.users[fullTag]) {
-                data.users[fullTag] = { name, tag, fullTag, friends: [], incoming: [], outgoing: [] };
+            const name = document.getElementById('regUsername').value.trim();
+            if (!name) {
+                document.getElementById('regError').innerText = 'Введите имя';
+                document.getElementById('regError').classList.remove('hidden');
+                return;
             }
-            currentUser = data.users[fullTag];
-            data.currentUser = fullTag;
-            saveData();
-            refreshUI();
-            showToast(`Добро пожаловать, ${name}`);
+            
+            let tag = document.getElementById('regTag').value.trim().replace('#','');
+            if (!tag || tag.length !== 4 || !/^\d+$/.test(tag)) {
+                document.getElementById('regError').innerText = 'Тег должен быть 4 цифры';
+                document.getElementById('regError').classList.remove('hidden');
+                return;
+            }
+            
+            const fullTag = `${name}#${tag}`;
+            
+            // Проверяем, существует ли уже такой пользователь
+            if (data.users[fullTag]) {
+                // Пользователь существует - входим
+                currentUser = data.users[fullTag];
+                data.currentUser = fullTag;
+                saveData();
+                showToast(`С возвращением, ${name}`);
+                refreshUI();
+            } else {
+                // Создаем нового пользователя
+                const newUser = { 
+                    name, 
+                    tag, 
+                    fullTag, 
+                    friends: [], 
+                    incoming: [], 
+                    outgoing: [] 
+                };
+                data.users[fullTag] = newUser;
+                currentUser = newUser;
+                data.currentUser = fullTag;
+                saveData();
+                showToast(`Добро пожаловать, ${name}`);
+                refreshUI();
+            }
+            
+            document.getElementById('regError').classList.add('hidden');
         });
 
         document.getElementById('guestContinue').addEventListener('click', () => {
             const guestName = 'Гость_' + Math.floor(Math.random()*1000);
-            const tag = String(Math.floor(Math.random()*9000+1000));
+            const tag = String(Math.floor(Math.random()*9000+1000)).padStart(4, '0');
             const fullTag = `${guestName}#${tag}`;
-            data.users[fullTag] = { name: guestName, tag, fullTag, friends: [], incoming: [], outgoing: [] };
+            
+            // Гости всегда уникальны благодаря случайному числу
+            data.users[fullTag] = { 
+                name: guestName, 
+                tag, 
+                fullTag, 
+                friends: [], 
+                incoming: [], 
+                outgoing: [] 
+            };
+            
             currentUser = data.users[fullTag];
             data.currentUser = fullTag;
             saveData();
-            refreshUI();
             showToast('Временный профиль создан');
+            refreshUI();
         });
 
-        // ----- Добавление друга -----
+        // ----- Добавление друга с проверкой существования -----
         document.getElementById('addFriendIcon').addEventListener('click', () => {
-            if (!currentUser) { showToast('Сначала войдите'); return; }
+            if (!currentUser) { 
+                showToast('Сначала войдите'); 
+                return; 
+            }
+            document.getElementById('friendTagInput').value = '';
+            document.getElementById('friendSearchResult').classList.add('hidden');
             document.getElementById('addFriendModal').classList.remove('hidden');
         });
+        
         document.getElementById('closeAddFriendModal').addEventListener('click', () => {
             document.getElementById('addFriendModal').classList.add('hidden');
         });
+        
         document.getElementById('sendFriendRequestBtn').addEventListener('click', () => {
             const targetTag = document.getElementById('friendTagInput').value.trim();
-            if (!targetTag.includes('#')) { showToast('Формат: Имя#1234'); return; }
+            const resultDiv = document.getElementById('friendSearchResult');
+            
+            // Валидация формата
+            if (!targetTag.includes('#')) { 
+                resultDiv.innerText = '❌ Неверный формат. Используйте: Имя#1234';
+                resultDiv.classList.remove('hidden');
+                return;
+            }
+            
             const targetUser = data.users[targetTag];
-            if (!targetUser) { showToast('Пользователь не найден'); return; }
-            if (targetTag === currentUser.fullTag) { showToast('Нельзя добавить себя'); return; }
-            if (currentUser.friends.includes(targetTag)) { showToast('Уже в друзьях'); return; }
-            if (currentUser.outgoing?.includes(targetTag)) { showToast('Запрос уже отправлен'); return; }
-
+            
+            // Проверка существования пользователя
+            if (!targetUser) { 
+                resultDiv.innerText = '❌ Пользователь не найден';
+                resultDiv.classList.remove('hidden');
+                return;
+            }
+            
+            // Проверка на самого себя
+            if (targetTag === currentUser.fullTag) { 
+                resultDiv.innerText = '❌ Нельзя добавить самого себя';
+                resultDiv.classList.remove('hidden');
+                return;
+            }
+            
+            // Проверка на уже в друзьях
+            if (currentUser.friends.includes(targetTag)) { 
+                resultDiv.innerText = '❌ Уже в друзьях';
+                resultDiv.classList.remove('hidden');
+                return;
+            }
+            
+            // Проверка на уже отправленный запрос
+            if (currentUser.outgoing?.includes(targetTag)) { 
+                resultDiv.innerText = '❌ Запрос уже отправлен';
+                resultDiv.classList.remove('hidden');
+                return;
+            }
+            
+            // Все проверки пройдены - отправляем запрос
             if (!currentUser.outgoing) currentUser.outgoing = [];
             if (!targetUser.incoming) targetUser.incoming = [];
+            
             currentUser.outgoing.push(targetTag);
             targetUser.incoming.push(currentUser.fullTag);
+            
             saveData();
-            showToast(`Запрос отправлен ${targetTag}`);
+            showToast(`✅ Запрос отправлен ${targetTag}`);
             document.getElementById('addFriendModal').classList.add('hidden');
-            document.getElementById('friendTagInput').value = '';
             refreshUI();
         });
 
-        // ----- Профиль / заявки (открыть список входящих) -----
+        // ----- Профиль / заявки -----
         document.getElementById('profileIcon').addEventListener('click', () => {
-            if (!currentUser) return;
+            if (!currentUser) {
+                showToast('Сначала войдите');
+                return;
+            }
+            
             const incoming = currentUser.incoming || [];
             if (incoming.length === 0) {
                 showToast('Нет входящих заявок');
                 return;
             }
+            
             const listDiv = document.getElementById('incomingRequestsList');
             listDiv.innerHTML = '';
+            
             incoming.forEach(fullTag => {
                 const reqUser = data.users[fullTag];
                 if (!reqUser) return;
+                
                 const div = document.createElement('div');
-                div.style.display = 'flex'; div.style.justifyContent = 'space-between'; div.style.marginBottom = '12px'; div.style.alignItems = 'center';
-                div.innerHTML = `<span>${reqUser.name} (${fullTag})</span>
-                    <button style="background:#23a55a; border:none; color:white; border-radius:30px; padding:6px 14px;" data-accept="${fullTag}">✔ Принять</button>`;
+                div.style.display = 'flex';
+                div.style.justifyContent = 'space-between';
+                div.style.alignItems = 'center';
+                div.style.marginBottom = '12px';
+                div.style.padding = '8px';
+                div.style.background = '#1e1f22';
+                div.style.borderRadius = '10px';
+                
+                div.innerHTML = `
+                    <span><strong>${reqUser.name}</strong> (${fullTag})</span>
+                    <button style="background:#23a55a; border:none; color:white; border-radius:30px; padding:8px 16px; cursor:pointer;" data-accept="${fullTag}">✔ Принять</button>
+                `;
+                
                 listDiv.appendChild(div);
+                
                 div.querySelector('button').addEventListener('click', (e) => {
-                    const requesterTag = e.target.dataset.accept;
-                    acceptRequest(requesterTag);
+                    e.stopPropagation();
+                    acceptRequest(fullTag);
                 });
             });
+            
             document.getElementById('requestsModal').classList.remove('hidden');
         });
 
         function acceptRequest(requesterTag) {
             if (!currentUser) return;
+            
             const other = data.users[requesterTag];
             if (!other) return;
-            if (!currentUser.friends.includes(requesterTag)) currentUser.friends.push(requesterTag);
-            if (!other.friends.includes(currentUser.fullTag)) other.friends.push(currentUser.fullTag);
-            // удаляем из входящих и исходящих
+            
+            // Добавляем в друзья обоим
+            if (!currentUser.friends.includes(requesterTag)) {
+                currentUser.friends.push(requesterTag);
+            }
+            if (!other.friends.includes(currentUser.fullTag)) {
+                other.friends.push(currentUser.fullTag);
+            }
+            
+            // Удаляем из входящих и исходящих
             currentUser.incoming = (currentUser.incoming || []).filter(r => r !== requesterTag);
-            if (other.outgoing) other.outgoing = other.outgoing.filter(r => r !== currentUser.fullTag);
+            if (other.outgoing) {
+                other.outgoing = other.outgoing.filter(r => r !== currentUser.fullTag);
+            }
+            
             saveData();
-            showToast(`Вы приняли заявку от ${requesterTag}`);
+            showToast(`✅ Вы приняли заявку от ${requesterTag}`);
             document.getElementById('requestsModal').classList.add('hidden');
             refreshUI();
         }
@@ -786,49 +953,41 @@
             showToast('Вы вышли');
         });
 
-        // ----- Имитация звонков -----
-        document.getElementById('voiceCallBtn').addEventListener('click', ()=>{
-            if (!selectedChatFriend) { showToast('Выберите друга'); return; }
+        // ----- Имитация звонков и голосовых -----
+        document.getElementById('voiceCallBtn').addEventListener('click', () => {
+            if (!selectedChatFriend) { 
+                showToast('Выберите друга'); 
+                return; 
+            }
             showToast(`📞 Звонок ${selectedChatFriend} (демо)`);
         });
-        document.getElementById('videoCallBtn').addEventListener('click', ()=>{
-            if (!selectedChatFriend) { showToast('Выберите друга'); return; }
+        
+        document.getElementById('videoCallBtn').addEventListener('click', () => {
+            if (!selectedChatFriend) { 
+                showToast('Выберите друга'); 
+                return; 
+            }
             showToast(`📹 Видеозвонок для ${selectedChatFriend} (демо)`);
         });
-        document.getElementById('startVoiceNote').addEventListener('click', ()=>{
-            showToast('🎤 Голосовое сообщение (демо)');
-            // можно сэмулировать добавление голосового
-            if (currentUser && selectedChatFriend) {
-                sendMessage('', { type: 'voice', duration: '0:15' });
+        
+        document.getElementById('startVoiceNote').addEventListener('click', () => {
+            if (!currentUser || !selectedChatFriend) {
+                showToast('Выберите получателя');
+                return;
             }
+            sendMessage('', { type: 'voice', duration: '0:15' });
+            showToast('🎤 Голосовое сообщение отправлено');
         });
 
-        // ----- Домой (сброс выбора) -----
-        document.getElementById('homeBtn').addEventListener('click', ()=>{
+        // ----- Домой -----
+        document.getElementById('homeBtn').addEventListener('click', () => {
             selectedChatFriend = null;
-            document.getElementById('currentChatName').innerText = '#вектор';
+            document.getElementById('currentChatName').innerText = '#vector';
             document.getElementById('currentChatTag').innerText = '';
             renderMessages();
         });
 
-        // ----- Превью тега -----
-        function updateTagPreview() {
-            const name = document.getElementById('regUsername').value || 'Игрок';
-            const tag = (document.getElementById('regTag').value || '0000').padStart(4, '0').slice(0,4);
-            document.getElementById('displayTagPreview').innerText = `${name}#${tag}`;
-        }
-        document.getElementById('regUsername').addEventListener('input', updateTagPreview);
-        document.getElementById('regTag').addEventListener('input', updateTagPreview);
-        updateTagPreview();
-
-        // ----- Первичная загрузка -----
-        refreshUI();
-        // Если есть currentUser, то все ок, иначе модалка авторизации
-        if (!currentUser) {
-            document.getElementById('authModal').classList.remove('hidden');
-        }
-
-        // поиск друзей (простой фильтр)
+        // ----- Поиск друзей -----
         document.getElementById('searchFriends').addEventListener('input', (e) => {
             const query = e.target.value.toLowerCase();
             document.querySelectorAll('.friend-item').forEach(el => {
@@ -837,6 +996,23 @@
                 el.style.display = (name.includes(query) || tag.includes(query)) ? 'flex' : 'none';
             });
         });
+
+        // ----- Превью тега -----
+        function updateTagPreview() {
+            const name = document.getElementById('regUsername').value || 'Игрок';
+            const tag = (document.getElementById('regTag').value || '0000').padStart(4, '0').slice(0,4);
+            document.getElementById('displayTagPreview').innerText = `${name}#${tag}`;
+        }
+        
+        document.getElementById('regUsername').addEventListener('input', updateTagPreview);
+        document.getElementById('regTag').addEventListener('input', updateTagPreview);
+        updateTagPreview();
+
+        // ----- Инициализация -----
+        refreshUI();
+        if (!currentUser) {
+            document.getElementById('authModal').classList.remove('hidden');
+        }
     })();
 </script>
 </body>
