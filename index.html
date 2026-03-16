@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vector · надежный мессенджер</title>
+    <title>Vector · надежный мессенджер с друзьями</title>
     <style>
         * {
             margin: 0;
@@ -56,7 +56,6 @@
             border: 1px solid #3d3f45;
         }
         .nav-icon:hover { border-radius: 18px; background: #5865f2; color: white; border-color: #5865f2; }
-        .nav-icon.active { background: #5865f2; color: white; border-radius: 18px; }
         .divider {
             width: 36px;
             height: 2px;
@@ -84,6 +83,12 @@
             display: flex;
             align-items: center;
             gap: 8px;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 8px;
+        }
+        .user-profile:hover {
+            background: #35373c;
         }
         .user-avatar {
             width: 36px;
@@ -99,6 +104,7 @@
         .user-name {
             font-size: 15px;
             color: white;
+            font-weight: 500;
         }
         .user-tag {
             font-size: 11px;
@@ -359,10 +365,14 @@
             width: 100%;
             cursor: pointer;
             font-size: 16px;
+            margin-bottom: 8px;
         }
         .modal button.secondary {
             background: #3d3f45;
-            margin-top: 12px;
+            margin-top: 0;
+        }
+        .modal button.danger {
+            background: #f23f42;
         }
         .toast {
             position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
@@ -374,18 +384,57 @@
         .badge {
             background: #f23f42; color: white; border-radius: 30px;
             padding: 3px 10px; font-size: 12px; margin-left: 8px;
+            font-weight: bold;
         }
-        .error-text {
-            color: #f23f42;
-            font-size: 13px;
-            margin-top: -10px;
-            margin-bottom: 15px;
+        .search-result-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background: #1e1f22;
+            border-radius: 12px;
+            margin-bottom: 8px;
         }
-        .success-text {
-            color: #23a55a;
+        .add-friend-btn {
+            background: #23a55a;
+            border: none;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
             font-size: 13px;
-            margin-top: -10px;
-            margin-bottom: 15px;
+        }
+        .add-friend-btn:hover { background: #1e8b4c; }
+        .friend-request-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background: #1e1f22;
+            border-radius: 12px;
+            margin-bottom: 8px;
+        }
+        .accept-btn {
+            background: #23a55a;
+            border: none;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            cursor: pointer;
+            margin-right: 8px;
+        }
+        .reject-btn {
+            background: #f23f42;
+            border: none;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            cursor: pointer;
+        }
+        .info-text {
+            color: #a5a9b2;
+            font-size: 14px;
+            margin-bottom: 16px;
         }
     </style>
 </head>
@@ -393,8 +442,8 @@
 <div class="app" id="app">
     <div class="sidebar">
         <div class="nav-icon" id="homeBtn" title="Главная">⌂</div>
-        <div class="nav-icon" id="addFriendIcon" title="Добавить друга">+</div>
-        <div class="nav-icon" id="profileIcon" title="Профиль / заявки">👤</div>
+        <div class="nav-icon" id="addFriendIcon" title="Найти друзей">+</div>
+        <div class="nav-icon" id="friendRequestsIcon" title="Заявки в друзья">📨</div>
         <div class="divider"></div>
         <div class="nav-icon" id="logoutIcon" title="Выйти">↪</div>
     </div>
@@ -405,12 +454,14 @@
                 <div class="user-avatar" id="currentUserAvatar">?</div>
                 <div>
                     <div class="user-name" id="currentUserName">Гость</div>
-                    <div class="user-tag" id="currentUserTag">#0000</div>
+                    <div class="user-tag" id="currentUserTag"></div>
                 </div>
             </div>
             <span class="badge hidden" id="requestBadge">0</span>
         </div>
-        <div class="search-box"><input type="text" placeholder="Поиск друзей" id="searchFriends"></div>
+        <div class="search-box">
+            <input type="text" placeholder="Поиск среди друзей" id="searchFriends">
+        </div>
         <div class="friends-list" id="friendsList"></div>
     </div>
 
@@ -432,8 +483,8 @@
             <div class="message-input-wrapper">
                 <button class="attach-btn" id="attachMediaBtn" title="Прикрепить фото/видео">📎</button>
                 <input type="file" id="fileInput" accept="image/*,video/*" style="display:none;">
-                <input type="text" class="message-input" placeholder="Сообщение..." id="messageInput">
-                <button class="voice-note-btn" id="startVoiceNote" title="Голосовое">🎤</button>
+                <input type="text" class="message-input" placeholder="Напишите сообщение..." id="messageInput">
+                <button class="voice-note-btn" id="startVoiceNote" title="Голосовое сообщение">🎤</button>
             </div>
         </div>
     </div>
@@ -442,32 +493,32 @@
 <!-- Модалка регистрации/входа -->
 <div id="authModal" class="modal-overlay">
     <div class="modal">
-        <h2>⚡ Регистрация / Вход</h2>
-        <input type="text" id="regUsername" placeholder="Имя" value="Игрок">
-        <input type="text" id="regTag" placeholder="Тег (4 цифры)" value="1234" maxlength="4">
-        <p style="margin-bottom: 8px;">Ваш ID: <span id="displayTagPreview">Игрок#1234</span></p>
-        <div id="regError" class="error-text hidden"></div>
-        <button id="registerBtn">Войти / Создать</button>
-        <button class="secondary" id="guestContinue">Продолжить как гость</button>
+        <h2>⚡ Вход / Регистрация</h2>
+        <input type="text" id="loginName" placeholder="Ваше имя" value="">
+        <input type="password" id="loginPassword" placeholder="Пароль" value="">
+        <div id="authError" class="info-text" style="color: #f23f42;"></div>
+        <button id="loginBtn">Войти</button>
+        <button class="secondary" id="registerBtn">Зарегистрироваться</button>
     </div>
 </div>
 
-<!-- Модалка добавления друга -->
-<div id="addFriendModal" class="modal-overlay hidden">
+<!-- Модалка поиска пользователей -->
+<div id="searchUsersModal" class="modal-overlay hidden">
     <div class="modal">
-        <h2>➕ Добавить друга</h2>
-        <input type="text" id="friendTagInput" placeholder="Введите тег (Пример#1234)">
-        <div id="friendSearchResult" class="error-text hidden"></div>
-        <button id="sendFriendRequestBtn">Отправить запрос</button>
-        <button class="secondary" id="closeAddFriendModal">Отмена</button>
+        <h2>🔍 Поиск пользователей</h2>
+        <input type="text" id="searchUserInput" placeholder="Введите имя для поиска">
+        <button id="performSearchBtn">Найти</button>
+        <div id="searchResults" style="max-height: 300px; overflow-y: auto; margin: 16px 0;"></div>
+        <button class="secondary" id="closeSearchModal">Закрыть</button>
     </div>
 </div>
 
 <!-- Модалка входящих заявок -->
-<div id="requestsModal" class="modal-overlay hidden">
+<div id="friendRequestsModal" class="modal-overlay hidden">
     <div class="modal">
         <h2>📨 Входящие заявки</h2>
-        <div id="incomingRequestsList" style="min-height:100px; max-height:250px; overflow-y:auto; margin-bottom:20px;"></div>
+        <div id="incomingRequestsList" style="max-height: 300px; overflow-y: auto; margin: 16px 0;"></div>
+        <div id="outgoingRequestsList" style="max-height: 300px; overflow-y: auto; margin: 16px 0;"></div>
         <button class="secondary" id="closeRequestsModal">Закрыть</button>
     </div>
 </div>
@@ -476,12 +527,14 @@
 
 <script>
     (function() {
-        // ----- Хранилище в localStorage -----
-        const STORAGE_KEY = 'vector_messenger_v2';
+        // ----- База данных в localStorage -----
+        const STORAGE_KEY = 'vector_messenger_v3';
+        
+        // Структура данных
         let data = {
-            users: {},          // fullTag -> { name, tag, fullTag, friends: [], incoming: [], outgoing: [] }
-            messages: {},       // "fullTag1_fullTag2" -> [{ from, text, media, time }]
-            currentUser: null   // fullTag текущего пользователя
+            users: {},           // userId -> { id, name, password, tag, friends: [], incoming: [], outgoing: [], avatar: null }
+            messages: {},        // "user1_user2" -> [{ fromId, text, media, time }]
+            currentUserId: null  // ID текущего пользователя
         };
 
         // Загрузка из localStorage
@@ -491,38 +544,37 @@
                 try {
                     const parsed = JSON.parse(saved);
                     data = parsed;
-                } catch (e) { console.warn("Ошибка загрузки"); }
+                } catch (e) {
+                    console.warn("Ошибка загрузки данных");
+                }
             }
+            
+            // Инициализация структуры, если пусто
             if (!data.users) data.users = {};
             if (!data.messages) data.messages = {};
             
-            // Добавляем тестовых пользователей, если их нет (для демо)
+            // Добавляем тестовых пользователей, если база пуста
             if (Object.keys(data.users).length === 0) {
-                data.users['Алиса#1234'] = { 
-                    name: 'Алиса', 
-                    tag: '1234', 
-                    fullTag: 'Алиса#1234', 
-                    friends: [], 
-                    incoming: [], 
-                    outgoing: [] 
-                };
-                data.users['Борис#5678'] = { 
-                    name: 'Борис', 
-                    tag: '5678', 
-                    fullTag: 'Борис#5678', 
-                    friends: [], 
-                    incoming: [], 
-                    outgoing: [] 
-                };
-                data.users['Виктор#9012'] = { 
-                    name: 'Виктор', 
-                    tag: '9012', 
-                    fullTag: 'Виктор#9012', 
-                    friends: [], 
-                    incoming: [], 
-                    outgoing: [] 
-                };
+                createTestUser('Алиса', '123');
+                createTestUser('Борис', '456');
+                createTestUser('Виктор', '789');
             }
+        }
+        
+        function createTestUser(name, password) {
+            const tag = Math.floor(1000 + Math.random() * 9000);
+            const userId = `${name}_${tag}`;
+            data.users[userId] = {
+                id: userId,
+                name: name,
+                password: password,
+                tag: tag,
+                friends: [],
+                incoming: [],
+                outgoing: [],
+                avatar: null
+            };
+            return userId;
         }
         
         function saveData() {
@@ -532,31 +584,30 @@
         loadData();
 
         // ----- Текущий пользователь -----
-        let currentUser = data.currentUser ? data.users[data.currentUser] : null;
-        let selectedChatFriend = null;
+        let currentUser = data.currentUserId ? data.users[data.currentUserId] : null;
+        let selectedChatFriend = null; // ID друга для чата
 
-        // ----- Всплывающие уведомления -----
-        function showToast(msg, duration=2000) {
+        // ----- Вспомогательные функции -----
+        function showToast(msg, duration = 2000) {
             const toast = document.getElementById('toast');
             toast.textContent = msg;
             toast.classList.remove('hidden');
             setTimeout(() => toast.classList.add('hidden'), duration);
         }
 
-        // ----- Обновить интерфейс -----
         function refreshUI() {
             if (currentUser) {
                 document.getElementById('currentUserName').innerText = currentUser.name;
-                document.getElementById('currentUserTag').innerText = currentUser.fullTag;
+                document.getElementById('currentUserTag').innerText = `#${currentUser.tag}`;
                 document.getElementById('currentUserAvatar').innerText = currentUser.name.charAt(0).toUpperCase();
                 document.getElementById('authModal').classList.add('hidden');
             } else {
                 document.getElementById('currentUserName').innerText = 'Гость';
-                document.getElementById('currentUserTag').innerText = 'не авторизован';
+                document.getElementById('currentUserTag').innerText = '';
                 document.getElementById('currentUserAvatar').innerText = '?';
-                document.getElementById('authModal').classList.remove('hidden');
             }
             
+            // Обновление бейджа с количеством заявок
             const badge = document.getElementById('requestBadge');
             if (currentUser && currentUser.incoming && currentUser.incoming.length > 0) {
                 badge.classList.remove('hidden');
@@ -573,44 +624,48 @@
         function renderFriendsList() {
             const container = document.getElementById('friendsList');
             if (!currentUser) {
-                container.innerHTML = '<div style="color:#777; padding:20px;">Войдите в профиль</div>';
+                container.innerHTML = '<div style="color: #777; padding: 20px;">Войдите в профиль</div>';
                 return;
             }
             
             const friends = currentUser.friends || [];
             if (friends.length === 0) {
-                container.innerHTML = '<div style="color:#777; padding:20px;">Друзей нет. Нажмите "+" чтобы добавить.</div>';
+                container.innerHTML = '<div style="color: #777; padding: 20px;">У вас пока нет друзей. Нажмите "+" чтобы найти людей.</div>';
                 return;
             }
             
             let html = '';
-            friends.forEach(fullTag => {
-                const friend = data.users[fullTag];
+            friends.forEach(friendId => {
+                const friend = data.users[friendId];
                 if (!friend) return;
-                const initial = friend.name.charAt(0).toUpperCase();
-                html += `<div class="friend-item" data-tag="${fullTag}">
-                    <div class="friend-avatar">${initial}</div>
+                
+                html += `<div class="friend-item" data-id="${friendId}">
+                    <div class="friend-avatar">${friend.name.charAt(0).toUpperCase()}</div>
                     <div class="friend-info">
                         <div class="friend-name">${friend.name}</div>
-                        <div class="friend-tag">${fullTag}</div>
+                        <div class="friend-tag">#${friend.tag}</div>
                     </div>
                     <div class="status-dot"></div>
                 </div>`;
             });
             
             container.innerHTML = html;
+            
+            // Добавляем обработчики кликов на друзей
             document.querySelectorAll('.friend-item').forEach(el => {
                 el.addEventListener('click', () => {
-                    selectChat(el.dataset.tag);
+                    selectChat(el.dataset.id);
                 });
             });
         }
 
-        function selectChat(fullTag) {
-            selectedChatFriend = fullTag;
-            const friend = data.users[fullTag];
-            document.getElementById('currentChatName').innerText = friend ? friend.name : 'Чат';
-            document.getElementById('currentChatTag').innerText = friend ? fullTag : '';
+        function selectChat(friendId) {
+            selectedChatFriend = friendId;
+            const friend = data.users[friendId];
+            if (friend) {
+                document.getElementById('currentChatName').innerText = friend.name;
+                document.getElementById('currentChatTag').innerText = `#${friend.tag}`;
+            }
             renderMessages();
         }
 
@@ -622,40 +677,40 @@
         function renderMessages() {
             const container = document.getElementById('messageContainer');
             if (!currentUser || !selectedChatFriend) {
-                container.innerHTML = '<div style="color:#777; align-self:center; margin-top:50px;">Выберите друга для общения</div>';
+                container.innerHTML = '<div style="color: #777; align-self: center; margin-top: 50px;">Выберите друга для общения</div>';
                 return;
             }
             
-            const key = getChatKey(currentUser.fullTag, selectedChatFriend);
+            const key = getChatKey(currentUser.id, selectedChatFriend);
             const chatMessages = data.messages[key] || [];
             
             if (chatMessages.length === 0) {
-                container.innerHTML = '<div style="color:#777; align-self:center;">Напишите первое сообщение</div>';
+                container.innerHTML = '<div style="color: #777; align-self: center;">Напишите первое сообщение</div>';
                 return;
             }
             
             let html = '';
             chatMessages.forEach(msg => {
-                const isOwn = (msg.from === currentUser.fullTag);
-                const authorName = isOwn ? currentUser.name : (data.users[selectedChatFriend]?.name || 'User');
-                const avatarLetter = authorName.charAt(0).toUpperCase();
+                const isOwn = (msg.fromId === currentUser.id);
+                const author = data.users[msg.fromId];
+                if (!author) return;
                 
                 let mediaHtml = '';
                 if (msg.media) {
                     if (msg.media.type === 'image') {
                         mediaHtml = `<div class="media-attachment"><img src="${msg.media.url}" alt="photo" onclick="window.open('${msg.media.url}')"></div>`;
                     } else if (msg.media.type === 'video') {
-                        mediaHtml = `<div class="media-attachment"><video src="${msg.media.url}" controls style="max-width:200px;"></video></div>`;
+                        mediaHtml = `<div class="media-attachment"><video src="${msg.media.url}" controls style="max-width: 200px;"></video></div>`;
                     } else if (msg.media.type === 'voice') {
-                        mediaHtml = `<div class="voice-message"><span>🎤</span><div class="voice-progress" style="width:100px; height:5px; background:#3d3f45;"></div><span>${msg.media.duration || '0:30'}</span></div>`;
+                        mediaHtml = `<div class="voice-message"><span>🎤</span><div style="width: 100px; height: 5px; background: #3d3f45; border-radius: 3px;"></div><span>${msg.media.duration || '0:30'}</span></div>`;
                     }
                 }
                 
                 html += `<div class="message ${isOwn ? 'own' : ''}">
-                    <div class="msg-avatar">${avatarLetter}</div>
+                    <div class="msg-avatar">${author.name.charAt(0).toUpperCase()}</div>
                     <div class="msg-bubble">
                         <div class="msg-meta">
-                            <span class="msg-author">${authorName}</span>
+                            <span class="msg-author">${author.name}</span>
                             <span class="msg-time">${msg.time || 'только что'}</span>
                         </div>
                         ${msg.text ? `<div>${msg.text}</div>` : ''}
@@ -668,18 +723,17 @@
             container.scrollTop = container.scrollHeight;
         }
 
-        // ----- Отправка сообщения -----
         function sendMessage(text, media = null) {
             if (!currentUser || !selectedChatFriend) {
                 showToast('Выберите собеседника');
                 return;
             }
             
-            const key = getChatKey(currentUser.fullTag, selectedChatFriend);
+            const key = getChatKey(currentUser.id, selectedChatFriend);
             if (!data.messages[key]) data.messages[key] = [];
             
             const msg = {
-                from: currentUser.fullTag,
+                fromId: currentUser.id,
                 text: text || '',
                 media: media,
                 time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -690,7 +744,326 @@
             renderMessages();
         }
 
-        // ----- Прикрепить файл -----
+        // ----- Регистрация и вход -----
+        document.getElementById('registerBtn').addEventListener('click', () => {
+            const name = document.getElementById('loginName').value.trim();
+            const password = document.getElementById('loginPassword').value.trim();
+            const errorDiv = document.getElementById('authError');
+            
+            if (!name || !password) {
+                errorDiv.innerText = 'Введите имя и пароль';
+                return;
+            }
+            
+            // Генерируем уникальный тег (4 цифры)
+            let tag;
+            let userId;
+            let attempts = 0;
+            do {
+                tag = Math.floor(1000 + Math.random() * 9000);
+                userId = `${name}_${tag}`;
+                attempts++;
+                if (attempts > 100) { // Защита от бесконечного цикла
+                    errorDiv.innerText = 'Ошибка генерации тега';
+                    return;
+                }
+            } while (data.users[userId]); // Проверяем, что такого пользователя еще нет
+            
+            // Создаем нового пользователя
+            const newUser = {
+                id: userId,
+                name: name,
+                password: password,
+                tag: tag,
+                friends: [],
+                incoming: [],
+                outgoing: [],
+                avatar: null
+            };
+            
+            data.users[userId] = newUser;
+            currentUser = newUser;
+            data.currentUserId = userId;
+            saveData();
+            
+            errorDiv.innerText = '';
+            showToast(`Добро пожаловать, ${name}! Ваш тег: #${tag}`);
+            refreshUI();
+        });
+
+        document.getElementById('loginBtn').addEventListener('click', () => {
+            const name = document.getElementById('loginName').value.trim();
+            const password = document.getElementById('loginPassword').value.trim();
+            const errorDiv = document.getElementById('authError');
+            
+            if (!name || !password) {
+                errorDiv.innerText = 'Введите имя и пароль';
+                return;
+            }
+            
+            // Ищем пользователя по имени и паролю
+            let foundUser = null;
+            for (const userId in data.users) {
+                const user = data.users[userId];
+                if (user.name === name && user.password === password) {
+                    foundUser = user;
+                    break;
+                }
+            }
+            
+            if (foundUser) {
+                currentUser = foundUser;
+                data.currentUserId = foundUser.id;
+                saveData();
+                errorDiv.innerText = '';
+                showToast(`С возвращением, ${name}!`);
+                refreshUI();
+            } else {
+                errorDiv.innerText = 'Неверное имя или пароль';
+            }
+        });
+
+        // ----- Поиск пользователей и добавление в друзья -----
+        document.getElementById('addFriendIcon').addEventListener('click', () => {
+            if (!currentUser) {
+                showToast('Сначала войдите');
+                return;
+            }
+            document.getElementById('searchUserInput').value = '';
+            document.getElementById('searchResults').innerHTML = '';
+            document.getElementById('searchUsersModal').classList.remove('hidden');
+        });
+
+        document.getElementById('closeSearchModal').addEventListener('click', () => {
+            document.getElementById('searchUsersModal').classList.add('hidden');
+        });
+
+        document.getElementById('performSearchBtn').addEventListener('click', () => {
+            const query = document.getElementById('searchUserInput').value.trim().toLowerCase();
+            const resultsDiv = document.getElementById('searchResults');
+            
+            if (!query) {
+                resultsDiv.innerHTML = '<div class="info-text">Введите имя для поиска</div>';
+                return;
+            }
+            
+            // Ищем пользователей, чье имя содержит запрос
+            const results = [];
+            for (const userId in data.users) {
+                const user = data.users[userId];
+                if (user.id === currentUser.id) continue; // Исключаем себя
+                if (user.name.toLowerCase().includes(query)) {
+                    results.push(user);
+                }
+            }
+            
+            if (results.length === 0) {
+                resultsDiv.innerHTML = '<div class="info-text">Пользователи не найдены</div>';
+                return;
+            }
+            
+            let html = '';
+            results.forEach(user => {
+                const isFriend = currentUser.friends.includes(user.id);
+                const isOutgoing = currentUser.outgoing.includes(user.id);
+                const isIncoming = currentUser.incoming.includes(user.id);
+                
+                let buttonHtml = '';
+                if (isFriend) {
+                    buttonHtml = '<button class="add-friend-btn" disabled style="background: #3d3f45;">✓ В друзьях</button>';
+                } else if (isOutgoing) {
+                    buttonHtml = '<button class="add-friend-btn" disabled style="background: #3d3f45;">⏳ Запрос отправлен</button>';
+                } else if (isIncoming) {
+                    buttonHtml = '<button class="add-friend-btn" style="background: #23a55a;" onclick="window.acceptFromSearch(\'' + user.id + '\')">✔ Принять заявку</button>';
+                } else {
+                    buttonHtml = `<button class="add-friend-btn" onclick="window.sendFriendRequest('${user.id}')">➕ Добавить</button>`;
+                }
+                
+                html += `<div class="search-result-item">
+                    <div>
+                        <strong>${user.name}</strong> #${user.tag}
+                    </div>
+                    ${buttonHtml}
+                </div>`;
+            });
+            
+            resultsDiv.innerHTML = html;
+        });
+
+        // Функция отправки заявки в друзья
+        window.sendFriendRequest = function(targetId) {
+            const targetUser = data.users[targetId];
+            if (!targetUser || !currentUser) return;
+            
+            // Проверки
+            if (currentUser.friends.includes(targetId)) {
+                showToast('Уже в друзьях');
+                return;
+            }
+            if (currentUser.outgoing.includes(targetId)) {
+                showToast('Запрос уже отправлен');
+                return;
+            }
+            
+            // Отправляем заявку
+            if (!currentUser.outgoing) currentUser.outgoing = [];
+            if (!targetUser.incoming) targetUser.incoming = [];
+            
+            currentUser.outgoing.push(targetId);
+            targetUser.incoming.push(currentUser.id);
+            
+            saveData();
+            showToast(`Заявка отправлена ${targetUser.name}`);
+            
+            // Обновляем результаты поиска
+            document.getElementById('performSearchBtn').click();
+            refreshUI();
+        };
+
+        // Принятие заявки из поиска
+        window.acceptFromSearch = function(senderId) {
+            const sender = data.users[senderId];
+            if (!sender || !currentUser) return;
+            
+            // Добавляем в друзья обоим
+            if (!currentUser.friends.includes(senderId)) {
+                currentUser.friends.push(senderId);
+            }
+            if (!sender.friends.includes(currentUser.id)) {
+                sender.friends.push(currentUser.id);
+            }
+            
+            // Удаляем из входящих/исходящих
+            currentUser.incoming = (currentUser.incoming || []).filter(id => id !== senderId);
+            sender.outgoing = (sender.outgoing || []).filter(id => id !== currentUser.id);
+            
+            saveData();
+            showToast(`Вы приняли заявку от ${sender.name}`);
+            document.getElementById('performSearchBtn').click();
+            refreshUI();
+        };
+
+        // ----- Просмотр и управление заявками -----
+        document.getElementById('friendRequestsIcon').addEventListener('click', () => {
+            if (!currentUser) {
+                showToast('Сначала войдите');
+                return;
+            }
+            
+            updateRequestsModal();
+            document.getElementById('friendRequestsModal').classList.remove('hidden');
+        });
+
+        document.getElementById('closeRequestsModal').addEventListener('click', () => {
+            document.getElementById('friendRequestsModal').classList.add('hidden');
+        });
+
+        function updateRequestsModal() {
+            if (!currentUser) return;
+            
+            const incomingDiv = document.getElementById('incomingRequestsList');
+            const outgoingDiv = document.getElementById('outgoingRequestsList');
+            
+            // Входящие заявки
+            const incoming = currentUser.incoming || [];
+            if (incoming.length === 0) {
+                incomingDiv.innerHTML = '<div class="info-text">Нет входящих заявок</div>';
+            } else {
+                let html = '<h3 style="margin-bottom: 10px;">Входящие:</h3>';
+                incoming.forEach(senderId => {
+                    const sender = data.users[senderId];
+                    if (!sender) return;
+                    
+                    html += `<div class="friend-request-item">
+                        <div>
+                            <strong>${sender.name}</strong> #${sender.tag}
+                        </div>
+                        <div>
+                            <button class="accept-btn" onclick="window.acceptRequest('${senderId}')">✔ Принять</button>
+                            <button class="reject-btn" onclick="window.rejectRequest('${senderId}')">✖ Отклонить</button>
+                        </div>
+                    </div>`;
+                });
+                incomingDiv.innerHTML = html;
+            }
+            
+            // Исходящие заявки
+            const outgoing = currentUser.outgoing || [];
+            if (outgoing.length === 0) {
+                outgoingDiv.innerHTML = '<div class="info-text">Нет исходящих заявок</div>';
+            } else {
+                let html = '<h3 style="margin-bottom: 10px; margin-top: 20px;">Исходящие:</h3>';
+                outgoing.forEach(targetId => {
+                    const target = data.users[targetId];
+                    if (!target) return;
+                    
+                    html += `<div class="friend-request-item">
+                        <div>
+                            <strong>${target.name}</strong> #${target.tag}
+                        </div>
+                        <div>
+                            <button class="reject-btn" onclick="window.cancelRequest('${targetId}')">✖ Отменить</button>
+                        </div>
+                    </div>`;
+                });
+                outgoingDiv.innerHTML = html;
+            }
+        }
+
+        // Принятие заявки
+        window.acceptRequest = function(senderId) {
+            const sender = data.users[senderId];
+            if (!sender || !currentUser) return;
+            
+            // Добавляем в друзья
+            if (!currentUser.friends.includes(senderId)) {
+                currentUser.friends.push(senderId);
+            }
+            if (!sender.friends.includes(currentUser.id)) {
+                sender.friends.push(currentUser.id);
+            }
+            
+            // Удаляем из входящих/исходящих
+            currentUser.incoming = (currentUser.incoming || []).filter(id => id !== senderId);
+            sender.outgoing = (sender.outgoing || []).filter(id => id !== currentUser.id);
+            
+            saveData();
+            showToast(`Вы приняли заявку от ${sender.name}`);
+            updateRequestsModal();
+            refreshUI();
+        };
+
+        // Отклонение заявки
+        window.rejectRequest = function(senderId) {
+            const sender = data.users[senderId];
+            if (!sender || !currentUser) return;
+            
+            // Просто удаляем из входящих/исходящих
+            currentUser.incoming = (currentUser.incoming || []).filter(id => id !== senderId);
+            sender.outgoing = (sender.outgoing || []).filter(id => id !== currentUser.id);
+            
+            saveData();
+            showToast(`Заявка отклонена`);
+            updateRequestsModal();
+            refreshUI();
+        };
+
+        // Отмена отправленной заявки
+        window.cancelRequest = function(targetId) {
+            const target = data.users[targetId];
+            if (!target || !currentUser) return;
+            
+            // Удаляем из исходящих/входящих
+            currentUser.outgoing = (currentUser.outgoing || []).filter(id => id !== targetId);
+            target.incoming = (target.incoming || []).filter(id => id !== currentUser.id);
+            
+            saveData();
+            showToast(`Заявка отменена`);
+            updateRequestsModal();
+            refreshUI();
+        };
+
+        // ----- Прикрепление файлов -----
         document.getElementById('attachMediaBtn').addEventListener('click', () => {
             document.getElementById('fileInput').click();
         });
@@ -715,14 +1088,14 @@
                 }
                 
                 sendMessage('', { type: type, url: base64 });
-                showToast('Файл прикреплён');
+                showToast('Файл прикреплен');
             };
             
             reader.readAsDataURL(file);
             this.value = '';
         });
 
-        // ----- Текстовое сообщение -----
+        // ----- Отправка сообщения по Enter -----
         document.getElementById('messageInput').addEventListener('keypress', (e) => {
             if (e.key === 'Enter' && e.target.value.trim()) {
                 sendMessage(e.target.value.trim());
@@ -730,246 +1103,7 @@
             }
         });
 
-        // ----- Регистрация с проверкой уникальности -----
-        document.getElementById('registerBtn').addEventListener('click', () => {
-            const name = document.getElementById('regUsername').value.trim();
-            if (!name) {
-                document.getElementById('regError').innerText = 'Введите имя';
-                document.getElementById('regError').classList.remove('hidden');
-                return;
-            }
-            
-            let tag = document.getElementById('regTag').value.trim().replace('#','');
-            if (!tag || tag.length !== 4 || !/^\d+$/.test(tag)) {
-                document.getElementById('regError').innerText = 'Тег должен быть 4 цифры';
-                document.getElementById('regError').classList.remove('hidden');
-                return;
-            }
-            
-            const fullTag = `${name}#${tag}`;
-            
-            // Проверяем, существует ли уже такой пользователь
-            if (data.users[fullTag]) {
-                // Пользователь существует - входим
-                currentUser = data.users[fullTag];
-                data.currentUser = fullTag;
-                saveData();
-                showToast(`С возвращением, ${name}`);
-                refreshUI();
-            } else {
-                // Создаем нового пользователя
-                const newUser = { 
-                    name, 
-                    tag, 
-                    fullTag, 
-                    friends: [], 
-                    incoming: [], 
-                    outgoing: [] 
-                };
-                data.users[fullTag] = newUser;
-                currentUser = newUser;
-                data.currentUser = fullTag;
-                saveData();
-                showToast(`Добро пожаловать, ${name}`);
-                refreshUI();
-            }
-            
-            document.getElementById('regError').classList.add('hidden');
-        });
-
-        document.getElementById('guestContinue').addEventListener('click', () => {
-            const guestName = 'Гость_' + Math.floor(Math.random()*1000);
-            const tag = String(Math.floor(Math.random()*9000+1000)).padStart(4, '0');
-            const fullTag = `${guestName}#${tag}`;
-            
-            // Гости всегда уникальны благодаря случайному числу
-            data.users[fullTag] = { 
-                name: guestName, 
-                tag, 
-                fullTag, 
-                friends: [], 
-                incoming: [], 
-                outgoing: [] 
-            };
-            
-            currentUser = data.users[fullTag];
-            data.currentUser = fullTag;
-            saveData();
-            showToast('Временный профиль создан');
-            refreshUI();
-        });
-
-        // ----- Добавление друга с проверкой существования -----
-        document.getElementById('addFriendIcon').addEventListener('click', () => {
-            if (!currentUser) { 
-                showToast('Сначала войдите'); 
-                return; 
-            }
-            document.getElementById('friendTagInput').value = '';
-            document.getElementById('friendSearchResult').classList.add('hidden');
-            document.getElementById('addFriendModal').classList.remove('hidden');
-        });
-        
-        document.getElementById('closeAddFriendModal').addEventListener('click', () => {
-            document.getElementById('addFriendModal').classList.add('hidden');
-        });
-        
-        document.getElementById('sendFriendRequestBtn').addEventListener('click', () => {
-            const targetTag = document.getElementById('friendTagInput').value.trim();
-            const resultDiv = document.getElementById('friendSearchResult');
-            
-            // Валидация формата
-            if (!targetTag.includes('#')) { 
-                resultDiv.innerText = '❌ Неверный формат. Используйте: Имя#1234';
-                resultDiv.classList.remove('hidden');
-                return;
-            }
-            
-            const targetUser = data.users[targetTag];
-            
-            // Проверка существования пользователя
-            if (!targetUser) { 
-                resultDiv.innerText = '❌ Пользователь не найден';
-                resultDiv.classList.remove('hidden');
-                return;
-            }
-            
-            // Проверка на самого себя
-            if (targetTag === currentUser.fullTag) { 
-                resultDiv.innerText = '❌ Нельзя добавить самого себя';
-                resultDiv.classList.remove('hidden');
-                return;
-            }
-            
-            // Проверка на уже в друзьях
-            if (currentUser.friends.includes(targetTag)) { 
-                resultDiv.innerText = '❌ Уже в друзьях';
-                resultDiv.classList.remove('hidden');
-                return;
-            }
-            
-            // Проверка на уже отправленный запрос
-            if (currentUser.outgoing?.includes(targetTag)) { 
-                resultDiv.innerText = '❌ Запрос уже отправлен';
-                resultDiv.classList.remove('hidden');
-                return;
-            }
-            
-            // Все проверки пройдены - отправляем запрос
-            if (!currentUser.outgoing) currentUser.outgoing = [];
-            if (!targetUser.incoming) targetUser.incoming = [];
-            
-            currentUser.outgoing.push(targetTag);
-            targetUser.incoming.push(currentUser.fullTag);
-            
-            saveData();
-            showToast(`✅ Запрос отправлен ${targetTag}`);
-            document.getElementById('addFriendModal').classList.add('hidden');
-            refreshUI();
-        });
-
-        // ----- Профиль / заявки -----
-        document.getElementById('profileIcon').addEventListener('click', () => {
-            if (!currentUser) {
-                showToast('Сначала войдите');
-                return;
-            }
-            
-            const incoming = currentUser.incoming || [];
-            if (incoming.length === 0) {
-                showToast('Нет входящих заявок');
-                return;
-            }
-            
-            const listDiv = document.getElementById('incomingRequestsList');
-            listDiv.innerHTML = '';
-            
-            incoming.forEach(fullTag => {
-                const reqUser = data.users[fullTag];
-                if (!reqUser) return;
-                
-                const div = document.createElement('div');
-                div.style.display = 'flex';
-                div.style.justifyContent = 'space-between';
-                div.style.alignItems = 'center';
-                div.style.marginBottom = '12px';
-                div.style.padding = '8px';
-                div.style.background = '#1e1f22';
-                div.style.borderRadius = '10px';
-                
-                div.innerHTML = `
-                    <span><strong>${reqUser.name}</strong> (${fullTag})</span>
-                    <button style="background:#23a55a; border:none; color:white; border-radius:30px; padding:8px 16px; cursor:pointer;" data-accept="${fullTag}">✔ Принять</button>
-                `;
-                
-                listDiv.appendChild(div);
-                
-                div.querySelector('button').addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    acceptRequest(fullTag);
-                });
-            });
-            
-            document.getElementById('requestsModal').classList.remove('hidden');
-        });
-
-        function acceptRequest(requesterTag) {
-            if (!currentUser) return;
-            
-            const other = data.users[requesterTag];
-            if (!other) return;
-            
-            // Добавляем в друзья обоим
-            if (!currentUser.friends.includes(requesterTag)) {
-                currentUser.friends.push(requesterTag);
-            }
-            if (!other.friends.includes(currentUser.fullTag)) {
-                other.friends.push(currentUser.fullTag);
-            }
-            
-            // Удаляем из входящих и исходящих
-            currentUser.incoming = (currentUser.incoming || []).filter(r => r !== requesterTag);
-            if (other.outgoing) {
-                other.outgoing = other.outgoing.filter(r => r !== currentUser.fullTag);
-            }
-            
-            saveData();
-            showToast(`✅ Вы приняли заявку от ${requesterTag}`);
-            document.getElementById('requestsModal').classList.add('hidden');
-            refreshUI();
-        }
-
-        document.getElementById('closeRequestsModal').addEventListener('click', () => {
-            document.getElementById('requestsModal').classList.add('hidden');
-        });
-
-        // ----- Выход -----
-        document.getElementById('logoutIcon').addEventListener('click', () => {
-            currentUser = null;
-            data.currentUser = null;
-            saveData();
-            selectedChatFriend = null;
-            refreshUI();
-            showToast('Вы вышли');
-        });
-
-        // ----- Имитация звонков и голосовых -----
-        document.getElementById('voiceCallBtn').addEventListener('click', () => {
-            if (!selectedChatFriend) { 
-                showToast('Выберите друга'); 
-                return; 
-            }
-            showToast(`📞 Звонок ${selectedChatFriend} (демо)`);
-        });
-        
-        document.getElementById('videoCallBtn').addEventListener('click', () => {
-            if (!selectedChatFriend) { 
-                showToast('Выберите друга'); 
-                return; 
-            }
-            showToast(`📹 Видеозвонок для ${selectedChatFriend} (демо)`);
-        });
-        
+        // ----- Голосовые сообщения (демо) -----
         document.getElementById('startVoiceNote').addEventListener('click', () => {
             if (!currentUser || !selectedChatFriend) {
                 showToast('Выберите получателя');
@@ -979,7 +1113,34 @@
             showToast('🎤 Голосовое сообщение отправлено');
         });
 
-        // ----- Домой -----
+        // ----- Звонки (демо) -----
+        document.getElementById('voiceCallBtn').addEventListener('click', () => {
+            if (!selectedChatFriend) { 
+                showToast('Выберите друга'); 
+                return; 
+            }
+            showToast(`📞 Звонок... (демо-режим)`);
+        });
+        
+        document.getElementById('videoCallBtn').addEventListener('click', () => {
+            if (!selectedChatFriend) { 
+                showToast('Выберите друга'); 
+                return; 
+            }
+            showToast(`📹 Видеозвонок... (демо-режим)`);
+        });
+
+        // ----- Выход -----
+        document.getElementById('logoutIcon').addEventListener('click', () => {
+            currentUser = null;
+            data.currentUserId = null;
+            saveData();
+            selectedChatFriend = null;
+            refreshUI();
+            showToast('Вы вышли');
+        });
+
+        // ----- Домой (сброс выбора) -----
         document.getElementById('homeBtn').addEventListener('click', () => {
             selectedChatFriend = null;
             document.getElementById('currentChatName').innerText = '#vector';
@@ -987,29 +1148,20 @@
             renderMessages();
         });
 
-        // ----- Поиск друзей -----
+        // ----- Поиск по друзьям -----
         document.getElementById('searchFriends').addEventListener('input', (e) => {
             const query = e.target.value.toLowerCase();
             document.querySelectorAll('.friend-item').forEach(el => {
                 const name = el.querySelector('.friend-name')?.innerText.toLowerCase() || '';
-                const tag = el.dataset.tag.toLowerCase();
+                const tag = el.dataset.id.toLowerCase();
                 el.style.display = (name.includes(query) || tag.includes(query)) ? 'flex' : 'none';
             });
         });
 
-        // ----- Превью тега -----
-        function updateTagPreview() {
-            const name = document.getElementById('regUsername').value || 'Игрок';
-            const tag = (document.getElementById('regTag').value || '0000').padStart(4, '0').slice(0,4);
-            document.getElementById('displayTagPreview').innerText = `${name}#${tag}`;
-        }
-        
-        document.getElementById('regUsername').addEventListener('input', updateTagPreview);
-        document.getElementById('regTag').addEventListener('input', updateTagPreview);
-        updateTagPreview();
-
         // ----- Инициализация -----
         refreshUI();
+        
+        // Если нет пользователя, показываем модалку входа
         if (!currentUser) {
             document.getElementById('authModal').classList.remove('hidden');
         }
